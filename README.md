@@ -17,10 +17,19 @@ Distributed memory for CrewAI and LangChain agents.
 - **[Agent Memory Support](samples/python/agent_memory.py)**: Solving CrewAI cross-crew persistence.
 - **[Trading Symbiosis](samples/python/trading_symbiosis.py)**: High-speed data intake + Redis coordination.
 
+Demo: https://www.youtube.com/watch?v=hTIsqH3CTfg
+<img width="1536" height="1024" alt="ChatGPT Image Mar 12, 2026, 09_51_45 PM" src="https://github.com/user-attachments/assets/7be811f6-0cf7-4e98-a7e3-f4e996b1235a" />
+
+
+
 ### 🟢 Node.js (`superbrain-distributed-sdk`)
 Real-time state sharing for TypeScript/JavaScript services.
 - **[Collective Intelligence](samples/node/collective_brain.js)**: Multi-agent history sharing.
 - **[Trading Symbiosis](samples/node/trading_symbiosis.js)**: Symbiotic relation with Redis control planes.
+
+Demo: https://www.youtube.com/watch?v=TzNxpk5PSXM
+<img width="1536" height="1024" alt="ChatGPT Image Mar 12, 2026, 12_36_57 AM" src="https://github.com/user-attachments/assets/81ff1e4a-27dc-4c69-817f-c2a23c0aa2ad" />
+
 
 ### 🔵 Go 
 Systems-level performance for data-heavy workloads.
