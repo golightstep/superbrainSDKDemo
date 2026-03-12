@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperBrain + Redis Symbiosis — Fault Tolerance Demo</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0B0F19;
+            --panel: rgba(18, 25, 43, 0.8);
+            --border: rgba(65, 84, 129, 0.35);
+            --text: #F1F5F9;
+            --muted: #94A3B8;
+            --sb: #38BDF8;
+            --redis: #DC2626;
+            --green: #10B981;
+            --amber: #F59E0B;
+            --red: #EF4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            background-image: radial-gradient(ellipse at 50% -10%, rgba(56, 189, 248, 0.06), transparent 55%);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 1rem 0 1.5rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        header p {
+            color: var(--muted);
+            margin-top: .5rem;
+            line-height: 1.5;
+        }
+
+        /* Cluster status banner */
+        .cluster-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .75rem;
+            padding: .6rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: .95rem;
+            margin-bottom: 1.5rem;
+            transition: background .4s;
+        }
+
+        .cluster-banner.active {
+            background: rgba(16, 185, 129, .15);
+            border: 1px solid rgba(16, 185, 129, .3);
+            color: var(--green);
+        }
+
+        .cluster-banner.election {
+            background: rgba(245, 158, 11, .15);
+            border: 1px solid rgba(245, 158, 11, .3);
+            color: var(--amber);
+        }
+
+        .cluster-banner.offline {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .3);
+            color: var(--red);
+        }
+
+        /* ─── Topology Grid ─── */
+        .topology-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .node-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            backdrop-filter: blur(10px);
+            transition: border-color .3s;
+        }
+
+        .node-card.offline {
+            border-color: rgba(239, 68, 68, .5);
+            opacity: 0.7;
+        }
+
+        .node-card.coordinator {
+            border-color: rgba(56, 189, 248, .5);
+        }
+
+        .node-card.election {
+            border-color: rgba(245, 158, 11, .5);
+        }
+
+        .node-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: .9rem;
+        }
+
+        .node-left {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .node-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: rgba(255, 255, 255, .07);
+        }
+
+        .node-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .node-region {
+            font-size: .78rem;
+            color: var(--muted);
+            margin-top: .1rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .node-ip {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--sb);
+            font-size: .82rem;
+            margin-top: .1rem;
+        }
+
+        .role-badge {
+            font-size: .72rem;
+            font-weight: 700;
+            padding: .2rem .6rem;
+            border-radius: 99px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .role-badge.coordinator {
+            background: rgba(56, 189, 248, .15);
+            color: var(--sb);
+            border: 1px solid rgba(56, 189, 248, .3);
+        }
+
+        .role-badge.follower {
+            background: rgba(255, 255, 255, .05);
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, .1);
+        }
+
+        .role-badge.offline {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .node-actions {
+            display: flex;
+            gap: .5rem;
+            margin-top: .75rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: .45rem .5rem;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: .8rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .btn-crash {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .btn-crash:hover:not(:disabled) {
+            background: rgba(239, 68, 68, .3);
+        }
+
+        .btn-recover {
+            background: rgba(16, 185, 129, .15);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, .3);
+        }
+
+        .btn-recover:hover:not(:disabled) {
+            background: rgba(16, 185, 129, .3);
+        }
+
+        .btn:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        /* ─── Main ─── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, .05);
+        }
+
+        .panel-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .panel-icon.sb {
+            background: rgba(56, 189, 248, .1);
+            border: 1px solid rgba(56, 189, 248, .25);
+        }
+
+        .panel-icon.redis {
+            background: rgba(220, 38, 38, .1);
+            border: 1px solid rgba(220, 38, 38, .25);
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .panel-desc {
+            color: var(--muted);
+            font-size: .85rem;
+            margin-top: .15rem;
+        }
+
+        /* Metrics */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: rgba(0, 0, 0, .25);
+            border: 1px solid rgba(255, 255, 255, .05);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .metric-label {
+            font-size: .78rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: .4rem;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.3rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: .9rem;
+            color: var(--muted);
+            margin-left: .25rem;
+            font-weight: 400;
+        }
+
+        .sb-text {
+            color: var(--sb);
+        }
+
+        .redis-text {
+            color: var(--redis);
+        }
+
+        .green-text {
+            color: var(--green);
+        }
+
+        .amber-text {
+            color: var(--amber);
+        }
+
+        /* Live ticker */
+        .live-ticker {
+            background: rgba(16, 185, 129, .08);
+            border: 1px solid rgba(16, 185, 129, .2);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ticker-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .pulse {
+            width: 11px;
+            height: 11px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(.95);
+                opacity: .7;
+                box-shadow: 0 0 6px var(--green);
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+                box-shadow: 0 0 14px var(--green);
+            }
+        }
+
+        /* Queue viz */
+        .queue-row {
+            margin-top: 1.25rem;
+        }
+
+        .queue-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: .5rem;
+        }
+
+        .queue-blocks {
+            display: flex;
+            gap: 3px;
+            height: 44px;
+        }
+
+        .qb {
+            flex: 1;
+            border-radius: 4px;
+            background: rgba(220, 38, 38, .15);
+            border: 1px solid rgba(220, 38, 38, .25);
+            transition: background .2s;
+        }
+
+        .qb.active {
+            background: var(--redis);
+            box-shadow: 0 0 8px rgba(220, 38, 38, .4);
+        }
+
+        /* Alert box */
+        .alert-box {
+            margin-top: 1.25rem;
+            padding: .0rem 1rem;
+            border-radius: 8px;
+            background: rgba(245, 158, 11, .08);
+            border: 1px solid rgba(245, 158, 11, .25);
+            color: var(--amber);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .85rem;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Activity Log & Architecture section */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .log-panel {
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-body {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 1rem;
+            background: rgba(0, 0, 0, .3);
+            border: 1px solid rgba(255, 255, 255, .06);
+            border-radius: 10px;
+            padding: .75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .82rem;
+            line-height: 1.7;
+            color: #A0AEC0;
+        }
+
+        .log-body .entry-crash {
+            color: var(--red);
+        }
+
+        .log-body .entry-elect {
+            color: var(--amber);
+        }
+
+        .log-body .entry-recover {
+            color: var(--green);
+        }
+
+        .log-body .entry-ok {
+            color: var(--sb);
+        }
+
+        /* ─── Animated Flow Diagram ─── */
+        .arch-panel {
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .flow-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .flow-node {
+            fill: #1E293B;
+            stroke: var(--border);
+            stroke-width: 2;
+            rx: 12;
+            ry: 12;
+        }
+
+        .flow-node.active {
+            stroke: var(--sb);
+        }
+
+        .flow-node.coordinator {
+            stroke: var(--sb);
+            filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
+        }
+
+        .flow-node.offline {
+            stroke: var(--red);
+            stroke-dasharray: 4;
+            opacity: 0.5;
+        }
+
+        .flow-label {
+            fill: white;
+            font-size: 11px;
+            font-weight: 600;
+            text-anchor: middle;
+            font-family: 'Inter', sans-serif;
+            pointer-events: none;
+        }
+
+        .flow-title {
+            fill: var(--muted);
+            font-size: 10px;
+            font-weight: 500;
+            text-anchor: middle;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            pointer-events: none;
+        }
+
+        .flow-line {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+        }
+
+        .flow-line.active {
+            stroke: rgba(56, 189, 248, 0.2);
+            stroke-dasharray: none;
+        }
+
+        .flow-particle {
+            fill: var(--sb);
+            filter: blur(1px);
+        }
+
+        .flow-particle-redis {
+            fill: var(--redis);
+        }
+
+        /* AHA moment */
+        .aha {
+            margin-top: 2rem;
+            text-align: center;
+            padding: 1.5rem 2rem;
+            background: rgba(255, 255, 255, .02);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 16px;
+        }
+
+        .aha h3 {
+            margin-bottom: .75rem;
+        }
+
+        .aha p {
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.7;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>SuperBrain + Redis Symbiosis</h1>
+            <p>Ultra-low latency data plane (SuperBrain) + Global coordination control plane (Redis).<br>
+                Simulating fault-tolerant cluster with Raft leader election.</p>
+        </header>
+
+        <!-- Cluster status banner -->
+        <div id="cluster-banner" class="cluster-banner active">
+            <span id="banner-icon">🟢</span>
+            <span id="banner-text">Cluster Active — 3 nodes online</span>
+        </div>
+
+        <!-- Node topology -->
+        <div class="topology-grid" id="topology-container">
+            <div class="node-card">
+                <div class="node-name">Loading nodes…</div>
+            </div>
+        </div>
+
+        <!-- Main metrics row -->
+        <div class="main-grid">
+            <!-- SuperBrain Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon sb">🧠</div>
+                    <div>
+                        <div class="panel-title">SuperBrain Fabric</div>
+                        <div class="panel-desc">Shared Memory Data Plane (13.5µs fan-out)</div>
+                    </div>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Fan-Out Latency</div>
+                        <div class="metric-value sb-text" id="sb-latency">--<span class="metric-unit">µs</span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Active Consumers</div>
+                        <div class="metric-value" id="sb-consumers">50<span class="metric-unit">strategies</span></div>
+                    </div>
+                </div>
+                <div class="live-ticker">
+                    <div>
+                        <div class="metric-label">Live Market Feed (SYM)</div>
+                        <div style="color:var(--muted);font-size:.8rem;margin-top:.2rem">High-throughput · Zero context
+                            switching</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:1rem">
+                        <div class="pulse" id="price-pulse"></div>
+                        <div class="ticker-price" id="sb-price">$0.0000</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Redis Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon redis">📦</div>
+                    <div>
+                        <div class="panel-title">Redis Cluster</div>
+                        <div class="panel-desc">Coordination & Global State Layer</div>
+                    </div>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Rate Limits Enforced</div>
+                        <div class="metric-value amber-text" id="redis-rl">0<span class="metric-unit">throttled</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Orders Executed</div>
+                        <div class="metric-value green-text" id="redis-processed">0</div>
+                    </div>
+                </div>
+                <div class="queue-row">
+                    <div class="queue-label metric-label">
+                        <span>Execution Queue</span>
+                        <span id="queue-count" class="redis-text">0 items</span>
+                    </div>
+                    <div class="queue-blocks" id="queue-container"></div>
+                </div>
+                <div class="alert-box" id="redis-alert">[Pub/Sub] Monitoring market volatility...</div>
+            </div>
+        </div>
+
+        <!-- Bottom: Activity Log + Architecture -->
+        <div class="bottom-section">
+            <!-- Activity Log -->
+            <div class="panel log-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"
+                        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)">📋</div>
+                    <div>
+                        <div class="panel-title">Activity Log</div>
+                        <div class="panel-desc">Raft events and cluster history</div>
+                    </div>
+                </div>
+                <div class="log-body" id="log-body">
+                    <div style="color:var(--muted)">Waiting for cluster events...</div>
+                </div>
+            </div>
+
+            <!-- Animated Architecture -->
+            <div class="panel arch-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"
+                        style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25)">📐</div>
+                    <div>
+                        <div class="panel-title">Animated Setup Architecture</div>
+                        <div class="panel-desc">Visualizing real-time data flow and Raft control state</div>
+                    </div>
+                </div>
+                <svg class="flow-svg" viewBox="0 0 800 380" id="arch-svg">
+                    <!-- Group IDs are used by JS to change status -->
+
+                    <!-- Paths -->
+                    <path id="path-feed-sb" class="flow-line active" d="M100 150 L250 150" />
+
+                    <!-- SuperBrain to Strategies -->
+                    <path id="path-sb-strat-1" class="flow-line active" d="M350 150 L500 100" />
+                    <path id="path-sb-strat-2" class="flow-line active" d="M350 150 L500 200" />
+                    <path id="path-sb-strat-3" class="flow-line active" d="M350 150 L500 300" />
+
+                    <!-- REDUNDANT: Strategies to Redis Coordination -->
+                    <path id="path-strat-1-redis" class="flow-line active" d="M600 100 C650 100, 650 150, 660 150" />
+                    <path id="path-strat-2-redis" class="flow-line active" d="M600 200 C650 200, 650 150, 660 150" />
+                    <path id="path-strat-3-redis" class="flow-line active" d="M600 300 C650 300, 650 150, 660 150" />
+
+                    <path id="path-redis-exec" class="flow-line active" d="M700 185 L700 250" />
+
+                    <!-- Nodes -->
+                    <!-- Feed Source -->
+                    <g id="arch-node-feed">
+                        <rect x="20" y="125" width="80" height="50" class="flow-node active" />
+                        <text x="60" y="145" class="flow-title">SOURCE</text>
+                        <text x="60" y="160" class="flow-label">Market Feed</text>
+                    </g>
+
+                    <!-- SuperBrain (Logic Center) -->
+                    <g id="arch-node-sb">
+                        <rect x="250" y="100" width="100" height="100" class="flow-node active"
+                            style="stroke-width:3" />
+                        <text x="300" y="135" class="flow-title">DATA PLANE</text>
+                        <text x="300" y="155" class="flow-label">SuperBrain</text>
+                        <text x="300" y="170" class="flow-label" style="font-size:9px;fill:var(--sb)">Shared Mem</text>
+                    </g>
+
+                    <!-- Trading Strategies -->
+                    <g id="arch-node-strat-1">
+                        <rect x="500" y="75" width="100" height="50" class="flow-node active" />
+                        <text x="550" y="105" class="flow-label">Strat A (Iowa)</text>
+                    </g>
+                    <g id="arch-node-strat-2">
+                        <rect x="500" y="175" width="100" height="50" class="flow-node active" />
+                        <text x="550" y="205" class="flow-label">Strat B (SC)</text>
+                    </g>
+                    <g id="arch-node-strat-3">
+                        <rect x="500" y="275" width="100" height="50" class="flow-node active" />
+                        <text x="550" y="305" class="flow-label">Strat C (OR)</text>
+                    </g>
+
+                    <!-- Redis -->
+                    <g id="arch-node-redis">
+                        <rect x="660" y="115" width="80" height="70" class="flow-node active"
+                            style="stroke:var(--redis)" />
+                        <text x="700" y="135" class="flow-title">COORD</text>
+                        <text x="700" y="155" class="flow-label">Redis</text>
+                        <text x="700" y="170" class="flow-label" style="font-size:9px;fill:var(--redis)">RL &
+                            Queues</text>
+                    </g>
+
+                    <!-- Execution -->
+                    <g id="arch-node-exec">
+                        <rect x="660" y="250" width="80" height="40" class="flow-node active" />
+                        <text x="700" y="275" class="flow-label">Order Exec</text>
+                    </g>
+
+                    <!-- Particles will be injected by JS -->
+                    <g id="particles-container"></g>
+                </svg>
+            </div>
+        </div>
+
+        <!-- AHA moment -->
+        <div class="aha">
+            <h3>Distributed System Architecture</h3>
+            <p>
+                This setup spans 3 GCP regions. <strong>SuperBrain</strong> acts as the lightning-fast data highway,
+                fanning out market data to all nodes simultaneously via a peer-to-peer fabric. <strong>Redis</strong>
+                acts as the central traffic controller, ensuring global order limits and persistent queuing are
+                respected across the entire cluster.
+                <br><br>
+                When a node crashes, the Raft algorithm ensures a new leader is elected to maintain the control plane
+                (Redis & Coordinator), while the SuperBrain data fabric continues to deliver sub-millisecond price
+                updates to surviving nodes.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // ─── WebSocket State ─────────────────────────────────────────
+        const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProtocol}//${location.host}/ws/state`);
+        let lastLogLen = 0;
+        let clusterActive = true;
+
+        ws.onmessage = ({ data }) => {
+            const s = JSON.parse(data);
+            updateSuperBrain(s.superbrain);
+            updateRedis(s.redis);
+            updateTopology(s.topology);
+            updateArchState(s.topology);
+        };
+        ws.onclose = () => setTimeout(() => location.reload(), 2000);
+
+        // ─── SuperBrain ──────────────────────────────────────────────
+        function updateSuperBrain(sb) {
+            if (!clusterActive) return;
+            document.getElementById('sb-price').textContent = `$${sb.price.toFixed(4)}`;
+            document.getElementById('sb-consumers').innerHTML = `${sb.consumers}<span class="metric-unit">strategies</span>`;
+            document.getElementById('sb-latency').innerHTML = `${sb.latency_us.toFixed(1)}<span class="metric-unit">µs</span>`;
+        }
+
+        function updateRedis(r) {
+            if (!clusterActive) return;
+            document.getElementById('redis-rl').innerHTML = `${r.rate_limit_hits}<span class="metric-unit">blocks</span>`;
+            document.getElementById('redis-processed').textContent = r.orders_processed;
+            const qLen = r.queue_length;
+            document.getElementById('queue-count').textContent = `${qLen} items`;
+            const max = 30;
+            let html = '';
+            for (let i = 0; i < max; i++) html += `<div class="qb${i < qLen ? ' active' : ''}"></div>`;
+            document.getElementById('queue-container').innerHTML = html;
+            if (r.latest_alert) document.getElementById('redis-alert').textContent = `⚠️ ${r.latest_alert}`;
+        }
+
+        // ─── Topology UI ─────────────────────────────────────────────
+        let lastNodesJson = "";
+        let lastClusterStatus = "";
+
+        function updateTopology(topo) {
+            if (!topo) return;
+            const nodesJson = JSON.stringify(topo.nodes);
+            const statusChanged = (topo.cluster_status !== lastClusterStatus);
+            const nodesChanged = (nodesJson !== lastNodesJson);
+
+            clusterActive = (topo.cluster_status === 'active');
+            lastClusterStatus = topo.cluster_status;
+
+            // Banner (Always update text if changed)
+            const banner = document.getElementById('cluster-banner');
+            const icon = document.getElementById('banner-icon');
+            const txt = document.getElementById('banner-text');
+            const online = topo.nodes.filter(n => n.status === 'online').length;
+
+            if (statusChanged || nodesChanged) {
+                banner.className = `cluster-banner ${topo.cluster_status}`;
+                if (topo.cluster_status === 'active') { icon.textContent = '🟢'; txt.textContent = `Cluster Active — ${online} nodes online`; }
+                else if (topo.cluster_status === 'election') { icon.textContent = '⚡'; txt.textContent = `Raft Election Progress — Heartbeat timeout...`; }
+                else { icon.textContent = '🔴'; txt.textContent = `Cluster OFFLINE — Quorum lost`; }
+            }
+
+            // Cards (ONLY re-render if data changed)
+            if (nodesChanged || statusChanged) {
+                lastNodesJson = nodesJson;
+                const container = document.getElementById('topology-container');
+                container.innerHTML = topo.nodes.map(node => {
+                    const isCoord = node.role === 'coordinator' && node.status === 'online';
+                    const isOff = node.status === 'offline';
+                    let cardClass = 'node-card' + (isOff ? ' offline' : '') + (isCoord ? ' coordinator' : '') + (topo.cluster_status === 'election' ? ' election' : '');
+                    let badgeClass = 'role-badge ' + (isOff ? 'offline' : node.role);
+                    let badgeTxt = isOff ? '💀 OFFLINE' : (isCoord ? '👑 Coordinator' : 'Follower');
+                    return `
+            <div class="${cardClass}">
+                <div class="node-top">
+                    <div class="node-left">
+                        <div class="node-icon">${isOff ? '💀' : (isCoord ? '👑' : '🖥️')}</div>
+                        <div>
+                            <div class="node-name">${node.name}</div>
+                            <div class="node-ip">${node.ip}</div>
+                            <div class="node-region">${node.region}</div>
+                        </div>
+                    </div>
+                    <span class="${badgeClass}">${badgeTxt}</span>
+                </div>
+                <div class="node-actions">
+                    <button class="btn btn-crash" onclick="nodeAction('${node.name}','crash', this)" ${isOff ? 'disabled' : ''}>💥 Crash</button>
+                    <button class="btn btn-recover" onclick="nodeAction('${node.name}','recover', this)" ${!isOff ? 'disabled' : ''}>🔧 Recover</button>
+                </div>
+            </div>`;
+                }).join('');
+            }
+
+            // Logs
+            const log = topo.activity_log || [];
+            if (log.length !== lastLogLen) {
+                lastLogLen = log.length;
+                const body = document.getElementById('log-body');
+                body.innerHTML = log.slice().reverse().map(e => {
+                    let c = e.includes('💥') || e.includes('🚨') ? 'entry-crash' : (e.includes('🗳') || e.includes('⚠️') ? 'entry-elect' : (e.includes('👑') || e.includes('✅') ? 'entry-recover' : 'entry-ok'));
+                    return `<div class="${c}">${e}</div>`;
+                }).join('');
+            }
+        }
+
+        // ─── Node Actions ────────────────────────────────────────────
+        async function nodeAction(name, action, btn) {
+            console.log(`Sending action: ${action} for node: ${name}`);
+            const iowaIp = "136.115.246.188"; // Iowa VM public IP
+            const url = `http://${iowaIp}:8081/api/node/${name}/${action}?t=${Date.now()}`;
+
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = '...';
+                setTimeout(() => { if (btn.disabled) btn.textContent = originalText; }, 2000);
+            }
+
+            try {
+                const resp = await fetch(url);
+                const data = await resp.json();
+                console.log(`Action response:`, data);
+            } catch (err) {
+                console.error(`Action failed:`, err);
+                alert(`Failed to send ${action} to ${name}. Please check connectivity to ${iowaIp}:8081`);
+            }
+        }
+        // ─── Animation System ────────────────────────────────────────
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const container = document.getElementById('particles-container');
+
+        function createParticle(pathId, type = 'sb') {
+            if (!clusterActive && type === 'redis') return;
+            const path = document.getElementById(pathId);
+            if (!path || !path.classList.contains('active')) return;
+
+            const particle = document.createElementNS(SVG_NS, "circle");
+            particle.setAttribute("r", type === 'sb' ? 2 : 3);
+            particle.setAttribute("class", type === 'sb' ? "flow-particle" : "flow-particle-redis");
+            container.appendChild(particle);
+
+            const length = path.getTotalLength();
+            let start = null;
+            const duration = type === 'sb' ? 1200 : 2500;
+
+            function step(timestamp) {
+                if (!start) start = timestamp;
+                const progress = (timestamp - start) / duration;
+                if (progress < 1) {
+                    const point = path.getPointAtLength(progress * length);
+                    particle.setAttribute("cx", point.x);
+                    particle.setAttribute("cy", point.y);
+                    requestAnimationFrame(step);
+                } else {
+                    particle.remove();
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        // Periodic flow
+        setInterval(() => {
+            if (!clusterActive) return;
+            createParticle('path-feed-sb');
+            setTimeout(() => {
+                createParticle('path-sb-strat-1');
+                createParticle('path-sb-strat-2');
+                createParticle('path-sb-strat-3');
+            }, 1200);
+        }, 400);
+
+        setInterval(() => {
+            if (!clusterActive) return;
+            // Pick a random online node to show outgoing Redis traffic
+            const activeIndices = [];
+            const nodes = document.querySelectorAll('.node-card');
+            nodes.forEach((n, i) => { if (!n.classList.contains('offline')) activeIndices.push(i + 1); });
+
+            if (activeIndices.length > 0) {
+                const idx = activeIndices[Math.floor(Math.random() * activeIndices.length)];
+                const pathId = `path-strat-${idx}-redis`;
+                createParticle(pathId, 'redis');
+                setTimeout(() => createParticle('path-redis-exec', 'redis'), 2500);
+            }
+        }, 800);
+
+        function updateArchState(topo) {
+            if (!topo) return;
+            topo.nodes.forEach((n, i) => {
+                const nodeIdx = i + 1;
+                const id = `arch-node-strat-${nodeIdx}`;
+                const inPathId = `path-sb-strat-${nodeIdx}`;
+                const outPathId = `path-strat-${nodeIdx}-redis`;
+
+                const rect = document.querySelector(`#${id} rect`);
+                const pIn = document.getElementById(inPathId);
+                const pOut = document.getElementById(outPathId);
+
+                if (n.status === 'offline') {
+                    rect.classList.add('offline');
+                    if (pIn) pIn.classList.remove('active');
+                    if (pOut) pOut.classList.remove('active');
+                } else {
+                    rect.classList.remove('offline');
+                    if (pIn) pIn.classList.add('active');
+                    if (pOut) pOut.classList.add('active');
+                }
+
+                if (n.role === 'coordinator' && n.status === 'online') rect.classList.add('coordinator');
+                else rect.classList.remove('coordinator');
+            });
+
+            // SB Master node status
+            const sb = document.querySelector('#arch-node-sb rect');
+            if (topo.cluster_status === 'active') sb.classList.remove('offline');
+            else sb.classList.add('offline');
+        }
+    </script>
+</body>
+
+</html>

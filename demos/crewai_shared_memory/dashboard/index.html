@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrewAI + SuperBrain: Distributed Multi-Agent Memory</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070a;
+            --panel: #0d1117;
+            --border: #1f2937;
+            --text: #e5e7eb;
+            --sb: #4ade80;
+            /* SuperBrain Neon Green */
+            --crew1: #60a5fa;
+            /* Blue */
+            --crew2: #a78bfa;
+            /* Purple */
+            --accent: #f472b6;
+            --log-bg: #0a0c10;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ─── Layout ─────────────────────────────────────────── */
+        header {
+            height: 60px;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(13, 17, 23, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 1.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo span {
+            color: var(--sb);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: var(--border);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #374151;
+            border-color: #4b5563;
+        }
+
+        .btn-primary {
+            background: var(--sb);
+            color: #022c22;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #86efac;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 1fr;
+            height: calc(100vh - 60px);
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* ─── Panels ────────────────────────────────────────── */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .c1-title {
+            color: var(--crew1);
+        }
+
+        .c2-title {
+            color: var(--crew2);
+        }
+
+        .log-container {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: 'JetBrains+Mono', monospace;
+            font-size: 0.85rem;
+            background: var(--log-bg);
+            scroll-behavior: smooth;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .entry-system {
+            color: #9ca3af;
+            font-style: italic;
+            border-left: 2px solid #374151;
+            padding-left: 8px;
+        }
+
+        .entry-agent {
+            color: #e5e7eb;
+        }
+
+        .entry-discovery {
+            color: var(--sb);
+            background: rgba(74, 222, 128, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 2px solid var(--sb);
+        }
+
+        .entry-recall {
+            color: var(--accent);
+            background: rgba(244, 114, 182, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 2px solid var(--accent);
+        }
+
+        .entry-output {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        /* ─── Visualizer (Center) ─────────────────────────── */
+        .visualizer {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #0a0f16 0%, #05070a 100%);
+            overflow: hidden;
+        }
+
+        /* Performance Metrics Overlay */
+        .metrics-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 15, 22, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            width: 200px;
+            font-family: 'JetBrains+Mono', monospace;
+            z-index: 10;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+        }
+
+        .metric-label {
+            color: #6b7280;
+        }
+
+        .metric-value {
+            color: var(--sb);
+            font-weight: 600;
+        }
+
+        .metric-value.highlight {
+            text-shadow: 0 0 10px var(--sb);
+        }
+
+        .brain-core {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .brain-svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 20px rgba(74, 222, 128, 0.4));
+            animation: pulse 4s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+        }
+
+        .memory-pool {
+            width: 90%;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .mem-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* ─── Particles ────────────────────────────────────── */
+        #particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* ─── Status Pips ──────────────────────────────────── */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            background: #374151;
+        }
+
+        .active .status-dot {
+            background: var(--sb);
+            box-shadow: 0 0 8px var(--sb);
+            animation: flash 1s infinite;
+        }
+
+        @keyframes flash {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">CrewAI × <span>SuperBrain</span></div>
+        <div class="controls">
+            <input id="custom-knowledge" type="text" class="knowledge-input" placeholder="Inject Custom Knowledge...">
+            <button id="btn-crew1" class="btn btn-primary" onclick="runPhase('research')">▶ Run Crew 1
+                (Research)</button>
+            <button id="btn-crew2" class="btn btn-primary" onclick="runPhase('writing')" disabled>▶ Run Crew 2
+                (Writer)</button>
+            <button class="btn" onclick="runPhase('reset')">Reset Demo</button>
+        </div>
+        <div id="connection-status" style="font-size: 0.8rem; color: #6b7280;">
+            <span class="status-dot"></span> Socket Offline
+        </div>
+    </header>
+
+    <main>
+        <!-- Crew 1: Researcher -->
+        <section class="panel" id="panel-crew1">
+            <div class="panel-header">
+                <span class="panel-title c1-title">Researcher Crew</span>
+                <span class="badge" style="font-size:0.7rem; color:var(--crew1)">Phase 1</span>
+            </div>
+            <div id="log-crew1" class="log-container">
+                <div class="log-entry entry-system">Waiting for kickoff...</div>
+            </div>
+        </section>
+
+        <!-- Visualizer -->
+        <section class="panel visualizer">
+            <div id="particles"></div>
+
+            <div class="metrics-overlay">
+                <div
+                    style="font-size: 0.65rem; color: #4b5563; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
+                    SuperBrain Telemetry</div>
+                <div class="metric-item">
+                    <span class="metric-label">Write Latency</span>
+                    <span id="metric-write" class="metric-value">-- μs</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Recall Speed</span>
+                    <span id="metric-recall" class="metric-value">-- μs</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Sync Velocity</span>
+                    <span class="metric-value">Instant</span>
+                </div>
+            </div>
+
+            <div class="brain-core">
+                <svg class="brain-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Hexagon Fabric Icon -->
+                    <circle cx="50" cy="50" r="45" stroke="var(--sb)" stroke-width="0.5" stroke-dasharray="2 2"
+                        opacity="0.2" />
+                    <path d="M50 15L80.3 32.5V67.5L50 85L19.7 67.5V32.5L50 15Z" stroke="var(--sb)" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="50" cy="50" r="10" fill="var(--sb)" opacity="0.8">
+                        <animate attributeName="r" values="8;12;8" dur="3s" repeatCount="indefinite" />
+                    </circle>
+                    <path
+                        d="M50 15V35M80.3 32.5L62.3 42.5M80.3 67.5L62.3 57.5M50 85V65M19.7 67.5L37.7 57.5M19.7 32.5L37.7 42.5"
+                        stroke="var(--sb)" stroke-width="1.5" stroke-linecap="round" />
+                    <circle cx="50" cy="15" r="2.5" fill="var(--sb)" />
+                    <circle cx="80.3" cy="32.5" r="2.5" fill="var(--sb)" />
+                    <circle cx="80.3" cy="67.5" r="2.5" fill="var(--sb)" />
+                    <circle cx="50" cy="85" r="2.5" fill="var(--sb)" />
+                    <circle cx="19.7" cy="67.5" r="2.5" fill="var(--sb)" />
+                    <circle cx="19.7" cy="32.5" r="2.5" fill="var(--sb)" />
+                </svg>
+            </div>
+            <div style="margin-top:20px; text-align:center;">
+                <div style="color:var(--sb); font-size:1.1rem; font-weight:600; letter-spacing: 0.1em;">MEMORY FABRIC
+                </div>
+                <div style="color:#6b7280; font-size:0.8rem;">Distributed Synchronized State</div>
+            </div>
+
+            <div class="memory-pool" id="memory-pool">
+                <div style="text-align:center; color:#4b5563; font-size:0.8rem; margin-bottom:10px;">Memory Context:
+                    crewai_shared_collective</div>
+                <div id="memory-items"></div>
+            </div>
+        </section>
+
+        <!-- Crew 2: Writer -->
+        <section class="panel" id="panel-crew2">
+            <div class="panel-header">
+                <span class="panel-title c2-title">Creative Crew</span>
+                <span class="badge" style="font-size:0.7rem; color:var(--crew2)">Phase 2</span>
+            </div>
+            <div id="log-crew2" class="log-container">
+                <div class="log-entry entry-system">Waiting for context...</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}/ws/state`);
+        const c1Log = document.getElementById('log-crew1');
+        const c2Log = document.getElementById('log-crew2');
+        const memItems = document.getElementById('memory-items');
+        const connStatus = document.getElementById('connection-status');
+        const particlesContainer = document.getElementById('particles');
+
+        ws.onopen = () => {
+            connStatus.classList.add('active');
+            connStatus.innerHTML = '<span class="status-dot"></span> Socket Connected';
+        };
+
+        ws.onmessage = (event) => {
+            const state = JSON.parse(event.data);
+
+            // Update Logs
+            renderLogs(state.crew1_logs, c1Log);
+            renderLogs(state.crew2_logs, c2Log);
+
+            // Update Memory Pool
+            renderMemory(state.shared_memory);
+
+            // Handle Phase Buttons
+            document.getElementById('btn-crew1').disabled = (state.phase !== 'idle' && state.phase !== 'finished');
+            document.getElementById('btn-crew2').disabled = (state.shared_memory.length === 0 || state.phase !== 'idle');
+
+            // Handle Events (Animations & Metrics)
+            if (state.events) {
+                state.events.forEach(e => {
+                    if (e.type === 'memory_write') {
+                        spawnParticle('crew1');
+                        document.getElementById('metric-write').innerText = `${e.latency || 0} μs`;
+                        document.getElementById('metric-write').classList.add('highlight');
+                        setTimeout(() => document.getElementById('metric-write').classList.remove('highlight'), 800);
+                    }
+                    if (e.type === 'memory_read') {
+                        spawnParticle('crew2');
+                        document.getElementById('metric-recall').innerText = `${e.latency || 0} μs`;
+                        document.getElementById('metric-recall').classList.add('highlight');
+                        setTimeout(() => document.getElementById('metric-recall').classList.remove('highlight'), 800);
+                    }
+                });
+            }
+        };
+
+        function renderLogs(logs, container) {
+            const currentCount = container.querySelectorAll('.log-entry').length;
+            if (logs.length > currentCount) {
+                // Wipe and full render is easier for this small demo, but let's append
+                for (let i = currentCount; i < logs.length; i++) {
+                    const entry = logs[i];
+                    const div = document.createElement('div');
+                    div.className = `log-entry entry-${entry.type}`;
+                    div.textContent = `[${new Date(entry.ts * 1000).toLocaleTimeString()}] ${entry.msg}`;
+                    container.appendChild(div);
+                }
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function renderMemory(memory) {
+            const currentMemCount = memItems.querySelectorAll('.mem-card').length;
+            if (memory.length > currentMemCount) {
+                for (let i = currentMemCount; i < memory.length; i++) {
+                    const m = memory[i];
+                    const div = document.createElement('div');
+                    div.className = 'mem-card';
+                    div.innerHTML = `
+                        <div style="font-size:0.7rem; color:var(--sb); margin-bottom:4px;">ENTITY: ${m.meta.source}</div>
+                        <div>${m.content}</div>
+                    `;
+                    memItems.insertBefore(div, memItems.firstChild);
+                }
+            }
+        }
+
+        async function runPhase(phase) {
+            let body = {};
+            if (phase === 'research') {
+                const knowledge = document.getElementById('custom-knowledge').value;
+                body = { knowledge: knowledge };
+            }
+            await fetch(`/api/run/${phase}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (phase === 'reset') {
+                c1Log.innerHTML = '<div class="log-entry entry-system">Waiting for kickoff...</div>';
+                c2Log.innerHTML = '<div class="log-entry entry-system">Waiting for context...</div>';
+                memItems.innerHTML = '';
+            }
+        }
+
+        function spawnParticle(target) {
+            const p = document.createElement('div');
+            p.style.position = 'absolute';
+            p.style.width = '10px';
+            p.style.height = '10px';
+            p.style.borderRadius = '50%';
+            p.style.boxShadow = '0 0 10px white';
+
+            const startX = target === 'crew1' ? 10 : (window.innerWidth / 2.4);
+            const startY = window.innerHeight / 2.5;
+
+            const endX = target === 'crew1' ? (window.innerWidth / 2.4) : (window.innerWidth / 2.4 * 2);
+            const endY = window.innerHeight / 2.5;
+
+            p.style.background = target === 'crew1' ? 'var(--crew1)' : 'var(--accent)';
+            p.style.left = target === 'crew1' ? '0%' : '50%';
+            p.style.top = '50%';
+            p.style.transition = 'all 1s cubic-bezier(0.4, 0, 0.2, 1)';
+
+            particlesContainer.appendChild(p);
+
+            setTimeout(() => {
+                p.style.transform = `translateX(${target === 'crew1' ? '200px' : '400px'}) scale(0)`;
+                p.style.opacity = '0';
+            }, 50);
+
+            setTimeout(() => p.remove(), 1100);
+        }
+    </script>
+</body>
+
+</html>
