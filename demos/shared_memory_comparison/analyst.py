@@ -38,7 +38,6 @@ def run_analyst(mode="traditional"):
                         data = json.load(f)
                 except: pass
             
-            # Slow polling for traditional mode to simulate bottleneck
             time.sleep(TRADITIONAL_POLL_INTERVAL)
         else:
             raw = ctx.read(REPORTER_KEY)

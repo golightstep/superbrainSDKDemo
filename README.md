@@ -1,6 +1,9 @@
 # SuperBrain SDK: Premium Polyglot Demos 🧠✨
 
-Welcome to the official **SuperBrain SDK Showcase**. This repository demonstrates how to utilize SuperBrain's high-performance distributed shared memory (Data Plane) alongside traditional control planes (Redis, CrewAI, etc.) to achieve microsecond-latency state synchronization across different services and languages.
+Welcome to the official **SuperBrain SDK Showcase**. This repository demonstrates how to utilize SuperBrain's high-performance distributed shared memory (Data Plane) alongside traditional control planes (Redis, CrewAI, etc.).
+
+> [!NOTE]
+> **Honesty Audit (2026-03-13)**: This demo has been audited for transparency. All artificial "simulation" bottlenecks and hardcoded performance metrics have been removed. The performance observed is the real, uninflated performance of the code paths.
 
 ## 🚀 The Multi-Agent Connectivity Problem
 

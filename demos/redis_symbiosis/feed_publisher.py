@@ -62,8 +62,8 @@ def main():
             # =====================================================================
             # ⚡ SUPERBRAIN: Write the heavy tick payload ONCE to Shared Memory
             # =====================================================================
-            # This is available instantly (microsecond latency) to all 50+ strategies
-            # without serializing 50 times or sending 50 network packets.
+            # NOTE: The REAL SDK is zero-copy (microsecond latency). 
+            # If using the Redis-based mock, this will involve network round-trips.
             shm_pool.write(args.symbol, tick_data)
 
             # =====================================================================

@@ -42,7 +42,8 @@ try:
     _test = DistributedContextFabric()
     print("✅ Real SuperBrain SDK loaded.")
 except Exception as e:
-    print(f"⚠️ SuperBrain SDK simulated (Local initialization failed: {e}).")
+    print(f"❌ SuperBrain SDK failed to load: {e}. Falling back to LOCAL-ONLY mock.")
+    # In an honest demo, we must be clear that this is a local dictionary fallback
     DistributedContextFabric = MockFabric
 
 # =============================================================================
@@ -106,14 +107,14 @@ async def run_crew_1():
         
         agents = ["Tech Analyst", "Hardware Expert"]
         for agent in agents:
-            log_event("research", f"🕵️ {agent} is analyzing SuperBrain performance...", "agent")
-            await asyncio.sleep(1.0)
+            log_event("research", f"🕵️ {agent} is processing...", "agent")
+            await asyncio.sleep(0.1)
             
-        log_event("research", "💡 Found Key Fact: 13.5µs Latency", "discovery")
-        save_to_memory("SuperBrain achieves 13.5 microseconds fan-out latency.", {"source": "Tech Analyst", "type": "fact"})
-        await asyncio.sleep(0.5)
+        log_event("research", "💡 Phase 1 data written to fabric.", "discovery")
+        save_to_memory("Distributed fabric test data.", {"source": "Tech Analyst", "type": "fact"})
+        await asyncio.sleep(0.1)
         
-        log_event("research", "✅ Phase 1 Complete.", "system")
+        log_event("research", "✅ Phase 1 complete.", "system")
     finally:
         demo_state["phase"] = "idle"
 
@@ -145,14 +146,14 @@ async def run_crew_2():
         
         for m in mems:
             demo_state["events"].append({"type": "memory_read", "data": m, "latency": round(recall_latency, 2)})
-            log_event("writing", f"📥 Recalled: '{m['content'][:35]}...'", "recall")
-            await asyncio.sleep(1.2)
+            log_event("writing", f"📥 Recalled entry: '{m['content'][:35]}...'", "recall")
+            await asyncio.sleep(0.1)
             
-        log_event("writing", "✍️ Copywriter is drafting the blog post...", "agent")
-        await asyncio.sleep(1.5)
+        log_event("writing", "✍️ Processing recalled data...", "agent")
+        await asyncio.sleep(0.1)
         
-        log_event("writing", "✨ Blog Draft: '13.5µs latency is the future...'", "output")
-        log_event("writing", "✅ Phase 2 Complete. Persistent memory verified.", "system")
+        log_event("writing", "✨ Output generated based on shared memory.", "output")
+        log_event("writing", "✅ Phase 2 complete.", "system")
         demo_state["phase"] = "finished"
     except Exception as e:
         log_event("writing", f"🔥 Error: {str(e)}", "system")

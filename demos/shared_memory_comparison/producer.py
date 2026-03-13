@@ -41,7 +41,7 @@ def run_producer(mode="traditional"):
                     with open(path, "r") as f:
                         verified_report = json.load(f)
                 except: pass
-            time.sleep(1.0)
+            time.sleep(TRADITIONAL_POLL_INTERVAL)
         else:
             raw = ctx.read(FACT_CHECKER_KEY)
             if raw: verified_report = json.loads(raw)

@@ -26,12 +26,14 @@ def get_all_studio_data():
             "Metrics": ctx.read(METRICS_KEY)
         }
         
-        # Add synthetic storm metrics if active
+        # Add dynamic storm metrics if active
         if STORM_MODE:
+            # We don't have a real storm implementation here, but we can at least 
+            # report that it's active without faking specific numbers if they aren't real.
+            # Or better, just remove the faked numbers.
             sb_data["StormMetrics"] = {
-                "active_agents": 20,
-                "fabric_reads": 1240,
-                "latency_stability": "99.9%"
+                "status": "active",
+                "mode": "load-simulation"
             }
         for k, v in sb_data.items():
             if v and isinstance(v, str):
@@ -80,10 +82,9 @@ def ask_anchor():
         question = req.get("question", "")
         
         if mode == "traditional":
-            time.sleep(3.5) # Simulate polling/sync lag
             return jsonify({
                 "mode": "traditional",
-                "answer": "Error: Data plane out of sync. Please wait for the next JSON polling cycle (approx 4s)."
+                "answer": "Traditional mode requires file I/O polling. Data might be stale."
             })
         else:
             # Superbrain - read current context

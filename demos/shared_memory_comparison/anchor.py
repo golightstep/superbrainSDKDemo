@@ -92,7 +92,8 @@ class Anchor:
                     self.speak(f"{prefix} Breaking news on {ticker}. Sentiment is {sentiment}.")
                     self.last_announced_ts = ts
                     
-            time.sleep(1.0)
+            from config import TRADITIONAL_POLL_INTERVAL
+            time.sleep(TRADITIONAL_POLL_INTERVAL)
 
 if __name__ == "__main__":
     import sys

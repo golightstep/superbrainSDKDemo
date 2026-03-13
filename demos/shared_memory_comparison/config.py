@@ -7,11 +7,12 @@ MARKET_DATA_FILE = os.path.join(BASE_DIR, "market_data.json")
 LOG_FILE = os.path.join(BASE_DIR, "knowledge_sharing.log")
 
 # Simulation Settings
-TRADITIONAL_POLL_INTERVAL = 2.0  # seconds
-SCRAPER_INTERVAL = 1.0           # seconds
-ANALYSIS_INTERVAL = 0.2          # seconds
-FACT_CHECK_INTERVAL = 0.2        # seconds
-SUPERBRAIN_TICK = 0.1            # Slowed down from 0.01 to prevent I/O thrashing
+# Simulation Settings
+TRADITIONAL_POLL_INTERVAL = 0.01  # Reduced from 2.0 to be honest
+SCRAPER_INTERVAL = 0.01          # Reduced from 1.0
+ANALYSIS_INTERVAL = 0.01         # Reduced
+FACT_CHECK_INTERVAL = 0.01       # Reduced
+SUPERBRAIN_TICK = 0.001          # Set to 1ms for honest high-performance demo
 
 # Shared Memory Fabric Keys
 CONTEXT_NAME = "ai_newsroom_fabric"
