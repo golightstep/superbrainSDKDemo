@@ -1,5 +1,8 @@
 # SuperBrain SDK: Premium Polyglot Demos 🧠✨
 
+NOTE: 
+THIS DEMO CODE IS IMPLEMETED BY AI TOOL NOT by HUMAN
+
 Welcome to the official **SuperBrain SDK Showcase**. This repository demonstrates how to utilize SuperBrain's high-performance distributed shared memory (Data Plane) alongside traditional control planes (Redis, CrewAI, etc.).
 
 > [!NOTE]
