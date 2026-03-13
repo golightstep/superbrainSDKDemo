@@ -4,7 +4,7 @@
 # This script starts the dashboard server for the multi-agent shared memory demo.
 
 DEMO_DIR="demos/crewai_shared_memory"
-PORT=8082
+PORT=8085
 
 echo "----------------------------------------------------"
 echo "🚀 Starting CrewAI + SuperBrain Visual Demo..."

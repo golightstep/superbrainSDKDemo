@@ -38,9 +38,11 @@ class MockFabric:
 
 try:
     from superbrain import DistributedContextFabric
+    # Test initialization to catch shared library errors
+    _test = DistributedContextFabric()
     print("✅ Real SuperBrain SDK loaded.")
-except ImportError:
-    print("⚠️ SuperBrain SDK simulated.")
+except Exception as e:
+    print(f"⚠️ SuperBrain SDK simulated (Local initialization failed: {e}).")
     DistributedContextFabric = MockFabric
 
 # =============================================================================
@@ -194,4 +196,4 @@ async def trigger_run(phase: str, request: RunPhaseRequest = None):
 app.mount("/", StaticFiles(directory="dashboard", html=True), name="dashboard")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8082, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8085, log_level="info")

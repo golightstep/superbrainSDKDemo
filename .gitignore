@@ -1,0 +1,9 @@
+venv/
+*.log
+*.json
+!config.json
+.DS_Store
+__pycache__/
+*.dylib
+*.so
+*.pyc

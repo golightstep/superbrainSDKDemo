@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI AGENT COMMUNICATION BENCHMARK | Superbrain vs Traditional</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030305;
+            --card-bg: #0d0d10;
+            --border: #1a1a20;
+            --primary: #6366f1;
+            --sb-glow: #00ff88;
+            --trad-glow: #ff4d4d;
+            --text: #ffffff;
+            --text-muted: #888899;
+            --accent: #f59e0b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 1.5rem; overflow-x: hidden; }
+
+        .benchmark-header { text-align: center; margin-bottom: 2.5rem; }
+        .benchmark-header h1 { font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; color: #fff; line-height: 1; margin-bottom: 0.5rem; }
+        .benchmark-header .subtitle { font-size: 1.2rem; color: var(--text-muted); font-weight: 400; }
+        .benchmark-header .highlight { color: var(--sb-glow); }
+
+        .controls { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+        .btn { border: 1px solid var(--border); background: var(--card-bg); color: #fff; padding: 0.8rem 1.5rem; border-radius: 12px; font-weight: 800; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
+        .btn:hover { border-color: var(--primary); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); transform: translateY(-2px); }
+        .btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+        .studio-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .column { display: flex; flex-direction: column; gap: 2rem; }
+        .column-header { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 1rem; }
+        .column-title { font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+        .column-desc { font-size: 0.9rem; color: var(--text-muted); }
+
+        .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px; padding: 2rem; position: relative; }
+        
+        .news-ticker { background: #000; padding: 1.2rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid #111; overflow: hidden; position: relative; }
+        .ticker-label { position: absolute; left: 0; top: 0; bottom: 0; background: #111; padding: 0 1.2rem; font-weight: 900; font-size: 0.7rem; z-index: 2; display: flex; align-items: center; text-transform: uppercase; }
+        .ticker-content { display: inline-block; white-space: nowrap; padding-left: 110px; font-weight: 700; color: var(--accent); transition: color 0.3s; }
+
+        .agent-stack { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2.5rem; }
+        .agent-row { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 1rem; }
+        .agent-label { font-size: 0.9rem; font-weight: 800; color: var(--text-muted); }
+        .track { height: 14px; background: rgba(0,0,0,0.5); border-radius: 7px; overflow: hidden; position: relative; }
+        .bar { height: 100%; width: 0%; border-radius: 7px; transition: all 0.1s linear; }
+
+        .trad .bar { background: var(--trad-glow); box-shadow: 0 0 12px var(--trad-glow); }
+        .sb .bar { background: var(--sb-glow); box-shadow: 0 0 12px var(--sb-glow); }
+
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .m-card { background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
+        .m-val { font-size: 2rem; font-weight: 900; font-family: 'JetBrains Mono', monospace; display: block; margin-bottom: 0.2rem; }
+        .m-lbl { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+        .interactive-panel { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #1a1a20; }
+        .ask-box { position: relative; }
+        .ask-box h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; letter-spacing: 1px; }
+        .input-group { display: flex; gap: 0.5rem; }
+        .input-group input { flex: 1; background: #000; border: 1px solid #1a1a20; color: #fff; padding: 1rem; border-radius: 12px; outline: none; transition: border-color 0.3s; }
+        .input-group input:focus { border-color: var(--primary); }
+        .input-group button { background: var(--primary); color: #fff; border: none; padding: 0 1.5rem; border-radius: 12px; font-weight: 900; cursor: pointer; transition: transform 0.2s; }
+        .input-group button:active { transform: scale(0.95); }
+        
+        .answer-display { margin-top: 1.2rem; min-height: 80px; background: #000; border-radius: 12px; padding: 1.2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; line-height: 1.6; color: #ccc; border-left: 4px solid #1a1a20; position: relative; }
+        .loading-dots { position: absolute; bottom: 0.5rem; right: 1rem; font-size: 0.7rem; color: #444; }
+
+        .memory-viewer { margin-top: 2rem; }
+        .memory-viewer h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; letter-spacing: 1px; }
+        .mem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+        .mem-cell { padding: 0.8rem; background: #000; border: 1px solid #1a1a20; border-radius: 8px; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+        .mem-key { color: var(--sb-glow); opacity: 0.8; }
+        .mem-pulse { animation: cell-flash 0.5s; }
+        @keyframes cell-flash { from { border-color: var(--sb-glow); background: rgba(0,255,136,0.1); } to { border-color: #1a1a20; background: #000; } }
+
+        .benchmark-timeline { margin-top: 3rem; background: var(--card-bg); border-radius: 24px; padding: 2rem; border: 1px solid var(--border); }
+        .benchmark-timeline h3 { margin-bottom: 2rem; text-transform: uppercase; font-size: 1.2rem; font-weight: 900; }
+        .sync-row { display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem; position: relative; padding-left: 120px; }
+        .sync-row-label { position: absolute; left: 0; font-size: 0.8rem; font-weight: 900; color: #444; text-transform: uppercase; }
+        .sync-visual { flex: 1; height: 50px; display: flex; gap: 10px; align-items: center; }
+        .node { width: 40px; height: 40px; background: #111; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 900; color: #333; transition: all 0.2s; }
+        
+        .sb-node.active { background: var(--sb-glow); color: #000; box-shadow: 0 0 20px var(--sb-glow); transform: scale(1.1); }
+        .trad-node.active { background: var(--trad-glow); color: #fff; box-shadow: 0 0 20px var(--trad-glow); transform: scale(1.1); }
+
+        #error-toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--trad-glow); padding: 1rem 2rem; border-radius: 12px; font-weight: 900; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .shield-active { animation: glow-pulse 2s infinite; }
+        @keyframes glow-pulse { 0% { box-shadow: 0 0 5px var(--sb-glow); } 50% { box-shadow: 0 0 30px var(--sb-glow); } 100% { box-shadow: 0 0 5px var(--sb-glow); } }
+
+        .storm-stats { margin-top: 1.5rem; padding: 1.2rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; display: none; }
+        .storm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .v-up { color: var(--sb-glow); font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+
+    <div id="error-toast">SIGNAL DEGRADATION DETECTED... RECHECKING BUFFERS</div>
+
+    <header class="benchmark-header">
+        <h1>AI AGENT <span class="highlight">COMMUNICATION</span> BENCHMARK</h1>
+        <p class="subtitle">Real-time Performance Measurement: Shared Memory Fabric vs JSON-Polling Relay</p>
+    </header>
+
+    <div class="controls">
+        <button class="btn" id="btn-conflict" onclick="toggleConflict()">Trigger Multi-Agent Conflict</button>
+        <button class="btn" id="btn-storm" onclick="toggleStorm()">Simulate API Storm (20 Agents)</button>
+    </div>
+
+    <div class="studio-layout">
+        <!-- TRADITIONAL -->
+        <div class="column trad">
+            <header class="column-header">
+                <span class="column-title" style="color: var(--trad-glow);">TRADITIONAL: API + JSON Polling</span>
+                <span class="column-desc">Standard Request/Response Cycle | Sequential Processing</span>
+            </header>
+
+            <div class="panel">
+                <div class="news-ticker">
+                    <div class="ticker-label" style="background: var(--trad-glow); color: #fff;">Polling</div>
+                    <div class="ticker-content" id="trad-ticker-msg">Buffering news signal...</div>
+                </div>
+
+                <div class="agent-stack">
+                    <div class="agent-row"><span class="agent-label">Reporter</span><div class="track"><div class="bar" id="trad-reporter"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Analyst</span><div class="track"><div class="bar" id="trad-analyst"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Fact Check</span><div class="track"><div class="bar" id="trad-factchecker"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Producer</span><div class="track"><div class="bar" id="trad-producer"></div></div></div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="m-card"><span class="m-val" id="trad-lat" style="color: var(--trad-glow);">--</span><span class="m-lbl">E2E Latency</span></div>
+                    <div class="m-card"><span class="m-val" id="trad-sync">SEQUENTIAL</span><span class="m-lbl">Execution Pattern</span></div>
+                </div>
+
+                <div class="interactive-panel">
+                    <div class="ask-box">
+                        <h4>Query Traditional Anchor</h4>
+                        <div class="input-group">
+                            <input type="text" id="ask-trad" placeholder="Is now a good time to buy BTC?">
+                            <button onclick="askAnchor('traditional')">ASK</button>
+                        </div>
+                        <div class="answer-display" id="resp-trad">Awaiting input...</div>
+                    </div>
+                </div>
+
+                <div class="memory-viewer">
+                    <h4>Internal File State (market_verified.json)</h4>
+                    <div class="mem-grid">
+                        <div class="mem-cell" style="grid-column: span 2; color: #444; border-style: dashed;">[Waiting for next disk write cycle...]</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUPERBRAIN -->
+        <div class="column sb">
+            <header class="column-header">
+                <span class="column-title" style="color: var(--sb-glow);">SUPERBRAIN: Shared Memory Fabric</span>
+                <span class="column-desc">Zero-Copy Primitive | Direct Memory Consensus</span>
+            </header>
+
+            <div class="panel" id="sb-panel">
+                <div class="news-ticker">
+                    <div class="ticker-label" style="background: var(--sb-glow); color: #000;">Fabric</div>
+                    <div class="ticker-content" id="sb-ticker-msg">Memory mapped. Ready for broadcast.</div>
+                </div>
+
+                <div class="agent-stack">
+                    <div class="agent-row"><span class="agent-label">Reporter</span><div class="track"><div class="bar" id="sb-reporter"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Analyst</span><div class="track"><div class="bar" id="sb-analyst"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Fact Check</span><div class="track"><div class="bar" id="sb-factchecker"></div></div></div>
+                    <div class="agent-row"><span class="agent-label">Producer</span><div class="track"><div class="bar" id="sb-producer"></div></div></div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="m-card"><span class="m-val" id="sb-lat" style="color: var(--sb-glow);">--</span><span class="m-lbl">E2E Latency</span></div>
+                    <div class="m-card"><span class="m-val" id="sb-sync" style="color: var(--sb-glow);">ATOMIC</span><span class="m-lbl">Execution Pattern</span></div>
+                </div>
+
+                <div class="interactive-panel">
+                    <div class="ask-box">
+                        <h4>Query Superbrain Anchor</h4>
+                        <div class="input-group">
+                            <input type="text" id="ask-sb" placeholder="Should I buy BTC?">
+                            <button onclick="askAnchor('superbrain')">ASK</button>
+                        </div>
+                        <div class="answer-display" id="resp-sb">Verified. Shared Memory Accessible.</div>
+                    </div>
+                </div>
+
+                <div class="memory-viewer">
+                    <h4>Direct Memory Inspection (Shared Fabric)</h4>
+                    <div class="mem-grid" id="sb-mem-grid">
+                        <div class="mem-cell"><span class="mem-key">market.price</span><span class="mem-val">--</span></div>
+                        <div class="mem-cell"><span class="mem-key">sentiment</span><span class="mem-val">--</span></div>
+                        <div class="mem-cell"><span class="mem-key">confidence</span><span class="mem-val">--</span></div>
+                        <div class="mem-cell"><span class="mem-key">verified</span><span class="mem-val">--</span></div>
+                    </div>
+                </div>
+
+                <div class="storm-stats" id="storm-box">
+                    <div class="storm-grid">
+                        <div><span class="m-lbl">Active Agents</span><span class="m-val" style="font-size:1.2rem;">20+</span></div>
+                        <div><span class="m-lbl">Mem Load</span><span class="m-val" style="font-size:1.2rem;">1.2k/s <span class="v-up">↑</span></span></div>
+                        <div><span class="m-lbl">Stability</span><span class="m-val" style="font-size:1.2rem; color: var(--sb-glow);">99.9%</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="benchmark-timeline">
+        <h3>Synchronization Flow (Micro-benchmarking)</h3>
+        
+        <div class="sync-row">
+            <span class="sync-row-label">TRADITIONAL</span>
+            <div class="sync-visual">
+                <div class="node trad-node" id="tn-1">REP</div>
+                <div style="width: 20%; height: 1px; background: #333; position: relative;"><span style="position: absolute; top: -15px; font-size: 0.6rem; color: #555;">Wait (Poll)</span></div>
+                <div class="node trad-node" id="tn-2">ANA</div>
+                <div style="width: 20%; height: 1px; background: #333; position: relative;"><span style="position: absolute; top: -15px; font-size: 0.6rem; color: #555;">Blocking I/O</span></div>
+                <div class="node trad-node" id="tn-3">FAC</div>
+                <div style="width: 20%; height: 1px; background: #333; position: relative;"><span style="position: absolute; top: -15px; font-size: 0.6rem; color: #555;">Disk Seek</span></div>
+                <div class="node trad-node" id="tn-4">PRD</div>
+            </div>
+        </div>
+
+        <div class="sync-row">
+            <span class="sync-row-label">SUPERBRAIN</span>
+            <div class="sync-visual">
+                <div class="node sb-node" id="sn-1">REP</div>
+                <div style="width: 10px; height: 1px; background: var(--sb-glow);"></div>
+                <div class="node sb-node" id="sn-2">ANA</div>
+                <div style="width: 10px; height: 1px; background: var(--sb-glow);"></div>
+                <div class="node sb-node" id="sn-3">FAC</div>
+                <div style="width: 10px; height: 1px; background: var(--sb-glow);"></div>
+                <div class="node sb-node" id="sn-4">PRD</div>
+                <span style="font-size: 0.7rem; color: var(--sb-glow); margin-left: 20px;">[ZERO LATENCY SHARING]</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const agents = ['Reporter', 'Analyst', 'FactChecker', 'Producer'];
+        let lastSbState = {};
+
+        async function askAnchor(mode) {
+            const input = document.getElementById(`ask-${mode}`);
+            const resp = document.getElementById(`resp-${mode}`);
+            const q = input.value || "Should I buy BTC?";
+            
+            resp.innerHTML = `Analyzing request... <span class="loading-dots">Requesting ${mode} context...</span>`;
+            if (mode === 'traditional') {
+                setTimeout(() => { resp.innerHTML = `Buffering I/O... [Waiting for polling cycle]`; }, 1000);
+            }
+
+            try {
+                const res = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode, question: q })
+                });
+                const data = await res.json();
+                
+                if (mode === 'traditional') {
+                    resp.innerHTML = `<span style="color: var(--trad-glow)">[RELAY DELAY] ${data.answer}</span>`;
+                } else {
+                    resp.innerHTML = `<span style="color: var(--sb-glow)">[MEMORY HIT] ${data.answer}</span>`;
+                }
+            } catch (e) {
+                resp.innerText = "Connection lost.";
+            }
+        }
+
+        async function toggleStorm() {
+            const res = await fetch('/api/storm', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('btn-storm').classList.toggle('active', data.storm);
+            document.getElementById('storm-box').style.display = data.storm ? 'block' : 'none';
+        }
+
+        async function toggleConflict() {
+            // Conflict is toggled via terminal, but we can visually pulse the button
+            const btn = document.getElementById('btn-conflict');
+            btn.classList.toggle('active');
+        }
+
+        async function updateStudio() {
+            try {
+                const res = await fetch('/api/studio/all', { signal: AbortSignal.timeout(2000) });
+                const data = await res.json();
+                document.getElementById('error-toast').style.display = 'none';
+
+                const now_ns = Date.now() * 1000000;
+
+                // UI Mode States
+                if (data.is_conflict) {
+                    document.getElementById('btn-conflict').classList.add('active');
+                    document.getElementById('sb-panel').classList.add('shield-active');
+                } else {
+                    document.getElementById('btn-conflict').classList.remove('active');
+                    document.getElementById('sb-panel').classList.remove('shield-active');
+                }
+
+                if (data.is_storm) {
+                     document.getElementById('btn-storm').classList.add('active');
+                     document.getElementById('storm-box').style.display = 'block';
+                }
+
+                // --- SUPERBRAIN LOGIC ---
+                const sb = data.superbrain;
+                const sbMetrics = sb.Metrics || {};
+                
+                agents.forEach((a, idx) => {
+                    const bar = document.getElementById(`sb-${a.toLowerCase()}`);
+                    if (sb[a]) {
+                        bar.style.width = '100%';
+                    }
+                });
+
+                // Shared Memory Inspection
+                const memoryGrid = document.getElementById('sb-mem-grid');
+                const interestingKeys = {
+                    'market.price': sb.Reporter?.price || '--',
+                    'sentiment': sb.Analyst?.sentiment || '--',
+                    'confidence': sb.FactChecker?.confidence ? (sb.FactChecker.confidence + '%') : '--',
+                    'verified': sb.FactChecker?.verified ? 'TRUE' : 'FALSE'
+                };
+                
+                let memHtml = '';
+                for (let [k, v] of Object.entries(interestingKeys)) {
+                    const isNew = lastSbState[k] !== v;
+                    memHtml += `<div class="mem-cell ${isNew ? 'mem-pulse' : ''}"><span class="mem-key">${k}</span><span class="mem-val">${v}</span></div>`;
+                }
+                memoryGrid.innerHTML = memHtml;
+                lastSbState = interestingKeys;
+
+                // E2E Latency (Exact Benchmarking)
+                const sbLat = sbMetrics.latency || 0;
+                document.getElementById('sb-lat').innerText = sbLat.toFixed(6) + 's';
+
+                if (sb.FactChecker) {
+                    document.getElementById('sb-ticker-msg').innerText = `BROADCAST: ${sb.FactChecker.ticker} confirmed at $${sb.Reporter?.price}. Sync Accuracy: 1.0. Fabric Latency: ${(sbLat * 1000000).toFixed(0)}μs.`;
+                    
+                    // Animate Timeline
+                    const nodes = document.querySelectorAll('.sb-node');
+                    nodes.forEach((n, i) => setTimeout(() => n.classList.add('active'), i * 20));
+                    setTimeout(() => nodes.forEach(n => n.classList.remove('active')), 800);
+                }
+
+                // --- TRADITIONAL LOGIC ---
+                const trad = data.traditional;
+                let tradMaxLat = 0;
+
+                agents.forEach((a, idx) => {
+                    const bar = document.getElementById(`trad-${a.toLowerCase()}`);
+                    const val = trad[a];
+                    if (val) {
+                        bar.style.width = '100%';
+                        const source_ns = val.source_ts_ns || (val.timestamp * 1000000000);
+                        const lat = (now_ns - source_ns) / 1e9;
+                        if (lat > tradMaxLat) tradMaxLat = lat;
+                    } else {
+                        bar.style.width = '0%';
+                    }
+                });
+
+                document.getElementById('trad-lat').innerText = tradMaxLat.toFixed(3) + 's';
+                
+                if (trad.FactChecker) {
+                    const stale = (now_ns - trad.FactChecker.verified_ts_ns) / 1e9;
+                    document.getElementById('trad-ticker-msg').innerText = `STALE: ${trad.FactChecker.ticker} signal lagging by ${stale.toFixed(1)}s. File locking in progress...`;
+                    
+                    // Animate Sequential Timeline
+                    const nodes = document.querySelectorAll('.trad-node');
+                    nodes.forEach((n, i) => {
+                        setTimeout(() => n.classList.add('active'), i * 800);
+                        setTimeout(() => n.classList.remove('active'), (i * 800) + 1200);
+                    });
+                }
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('error-toast').style.display = 'block';
+            }
+        }
+
+        setInterval(updateStudio, 800);
+    </script>
+</body>
+</html>

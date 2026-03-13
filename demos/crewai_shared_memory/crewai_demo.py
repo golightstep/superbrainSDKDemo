@@ -6,12 +6,17 @@ from typing import Any, List, Optional
 # CrewAI Imports (Assume latest 2026 version)
 # CrewAI uses a specialized Memory class that delegates to a storage backend.
 try:
+    # We force the mock here for the demo to ensure it runs without API keys
+    # while still showing the Real SuperBrain integration logic below.
+    raise ImportError("Force Mock for API-key-free Demo")
     from crewai import Agent, Task, Crew, Process
-    # In latest CrewAI, Storage is often handled via these base classes
-    from crewai.memory.storage.base_storage_backend import StorageBackend
-except ImportError:
+    try:
+        from crewai.memory.storage.backend import StorageBackend
+    except ImportError:
+        from crewai.memory.storage.base_storage_backend import StorageBackend
+except (ImportError, Exception):
     # Minimal mocks for a runnable demonstration structure if environment is not set up
-    print("⚠️ CrewAI not detected. Using structure mocks for demonstration.")
+    print("🤖 Using demo mock agents (No LLM API keys required).")
     class StorageBackend: pass
     class Agent:
         def __init__(self, role, goal, backstory, memory=True, verbose=True):
@@ -32,8 +37,11 @@ except ImportError:
 # SuperBrain SDK Import
 try:
     from superbrain import DistributedContextFabric
-except ImportError:
+    # Test initialization
+    _test = DistributedContextFabric()
+except Exception as e:
     # Simulated SuperBrain logic for the demo code transparency
+    print(f"⚠️ Native SuperBrain SDK unavailable ({e}). Using simulation mode.")
     class DistributedContextFabric:
         _global_store = {}
         def attach_context(self, name):
