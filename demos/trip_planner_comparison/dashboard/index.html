@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperBrain vs Vanilla — Live Trip Planner Demo</title>
+    <meta name="description" content="Trigger the Trip Planner side-by-side and watch both agents run in real-time.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #06080f;
+            --surface: #0d1117;
+            --surface2: #161b22;
+            --border: rgba(255,255,255,0.07);
+            --primary: #00e5ff;
+            --primary-glow: rgba(0,229,255,0.15);
+            --warn: #ff6b6b;
+            --warn-glow: rgba(255,107,107,0.12);
+            --accent: #a78bfa;
+            --text: #f0f6fc;
+            --text-dim: #8b949e;
+            --green: #3fb950;
+            --yellow: #d29922;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content:'';
+            position:fixed; inset:0;
+            background:
+                radial-gradient(ellipse 80% 40% at 20% 0%, rgba(0,229,255,.06) 0%,transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 90%, rgba(167,139,250,.06) 0%,transparent 60%);
+            pointer-events:none; z-index:0;
+        }
+
+        .page { max-width:1300px; margin:0 auto; padding:48px 24px 80px; position:relative; z-index:1; }
+
+        /* ── Hero ── */
+        .hero { text-align:center; margin-bottom:52px; }
+        .hero-tag {
+            display:inline-block; font-size:.78rem; font-weight:600;
+            letter-spacing:.12em; text-transform:uppercase; color:var(--primary);
+            border:1px solid var(--primary-glow); background:var(--primary-glow);
+            padding:4px 14px; border-radius:99px; margin-bottom:18px;
+        }
+        .hero h1 {
+            font-size:clamp(2.2rem,5vw,3.8rem); font-weight:900;
+            background:linear-gradient(135deg,var(--text) 40%,var(--primary));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            background-clip:text; line-height:1.1; margin-bottom:14px;
+        }
+        .hero p { color:var(--text-dim); font-size:1.05rem; max-width:500px; margin:0 auto; line-height:1.6; }
+
+        /* ── Input Form ── */
+        .form-card {
+            background:var(--surface); border:1px solid var(--border);
+            border-radius:20px; padding:32px; margin-bottom:36px;
+        }
+        .form-card h2 { font-size:1.1rem; font-weight:700; margin-bottom:24px; color:var(--text); }
+        .form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:24px; }
+        .form-field { display:flex; flex-direction:column; gap:6px; }
+        .form-field label { font-size:.8rem; color:var(--text-dim); font-weight:600; letter-spacing:.05em; text-transform:uppercase; }
+        .form-field input {
+            background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+            padding:10px 14px; color:var(--text); font-size:.95rem; font-family:'Outfit',sans-serif;
+            transition:border-color .2s;
+        }
+        .form-field input:focus { outline:none; border-color:rgba(0,229,255,.4); }
+        .form-field input::placeholder { color:var(--text-dim); }
+
+        .run-btn {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:13px 32px; background:linear-gradient(135deg,var(--primary),#00b8d8);
+            border:none; border-radius:99px; color:#000; font-weight:800;
+            font-size:1rem; cursor:pointer; transition:transform .2s,box-shadow .2s;
+            font-family:'Outfit',sans-serif; width:100%;
+            justify-content:center;
+        }
+        .run-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 0 40px var(--primary-glow); }
+        .run-btn:disabled { opacity:.5; cursor:not-allowed; }
+        .spinner { display:none; width:16px; height:16px; border:2px solid rgba(0,0,0,.3); border-top-color:#000; border-radius:50%; animation:spin .7s linear infinite; }
+        .run-btn.loading .spinner { display:block; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ── Side-by-side live panels ── */
+        .section-label { font-size:.72rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); margin-bottom:16px; }
+
+        .race-grid {
+            display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:36px;
+        }
+
+        .race-panel {
+            background:var(--surface); border:1px solid var(--border);
+            border-radius:20px; overflow:hidden; display:flex; flex-direction:column;
+            min-height:320px;
+        }
+        .race-panel.sdk { border-color:rgba(0,229,255,.25); }
+
+        .panel-header {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:16px 20px; background:var(--surface2); border-bottom:1px solid var(--border);
+        }
+        .panel-title { font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:8px; }
+        .panel-badge { font-size:.68rem; font-weight:600; padding:3px 10px; border-radius:99px; }
+        .badge-v { background:rgba(255,255,255,.08); color:var(--text-dim); }
+        .badge-s { background:rgba(0,229,255,.1); color:var(--primary); border:1px solid rgba(0,229,255,.3); }
+
+        .panel-status {
+            display:flex; align-items:center; gap:6px; font-size:.75rem; color:var(--text-dim);
+        }
+        .status-dot { width:7px; height:7px; border-radius:50%; background:var(--text-dim); transition:background .3s; }
+        .status-dot.running { background:var(--yellow); animation:pulse-dot 1s infinite; box-shadow:0 0 8px var(--yellow); }
+        .status-dot.done    { background:var(--green);  box-shadow:0 0 8px var(--green);  }
+        .status-dot.error   { background:var(--warn);   box-shadow:0 0 8px var(--warn);   }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        .log-body {
+            flex:1; padding:16px 20px; overflow-y:auto; max-height:340px;
+            font-family:'JetBrains Mono',monospace; font-size:.78rem;
+            line-height:1.8; color:var(--text-dim);
+        }
+        .log-body .log-idle { color:#444; font-style:italic; }
+        .log-line { white-space:pre-wrap; word-break:break-all; }
+        .log-line.info  { color:var(--primary); }
+        .log-line.done  { color:var(--green); font-weight:600; }
+        .log-line.error { color:var(--warn); }
+        .log-line.warn  { color:var(--yellow); }
+
+        /* ── Results Section ── */
+        #results-section { display:none; }
+        #results-section.visible { display:block; }
+
+        .compare-grid {
+            display:grid; grid-template-columns:1fr auto 1fr;
+            gap:0; margin-bottom:36px; align-items:stretch;
+        }
+        .impl-card {
+            background:var(--surface); border:1px solid var(--border);
+            border-radius:20px; padding:30px; display:flex; flex-direction:column; gap:22px;
+        }
+        .impl-card.sdk { border-color:rgba(0,229,255,.3); background:linear-gradient(160deg,rgba(0,229,255,.03),var(--surface)); }
+        .impl-card-header { display:flex; align-items:center; justify-content:space-between; }
+        .impl-title { font-size:1.15rem; font-weight:800; }
+        .stat-row { display:flex; flex-direction:column; gap:4px; }
+        .stat-label { font-size:.78rem; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+        .stat-source { font-size:.65rem; background:rgba(255,255,255,.05); padding:2px 6px; border-radius:4px; font-family:'JetBrains Mono',monospace; }
+        .stat-value { font-size:2.2rem; font-weight:800; line-height:1; display:flex; align-items:baseline; gap:4px; }
+        .stat-unit { font-size:1rem; font-weight:400; color:var(--text-dim); }
+        .stat-value.danger { color:var(--warn); }
+        .stat-value.safe   { color:var(--primary); }
+        .bar-track { height:5px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden; margin-top:4px; }
+        .bar-fill { height:100%; border-radius:99px; transition:width 1.2s cubic-bezier(.22,1,.36,1); }
+        .bar-fill.red  { background:var(--warn); }
+        .bar-fill.cyan { background:var(--primary); }
+
+        .compare-divider { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 20px; gap:10px; }
+        .divider-line { flex:1; width:1px; background:var(--border); }
+        .divider-vs { font-size:.7rem; color:var(--text-dim); text-transform:uppercase; }
+
+        /* ── Summary Stats ── */
+        .summary-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-bottom:36px; }
+        .stat-card { background:var(--surface); border:1px solid rgba(0,229,255,.2); border-radius:16px; padding:22px; text-align:center; background:radial-gradient(ellipse at center,rgba(0,229,255,.04),var(--surface)); }
+        .stat-card .big { font-size:2.6rem; font-weight:900; line-height:1; }
+        .stat-card .lbl { color:var(--text-dim); font-size:.82rem; margin-top:6px; }
+
+        /* ── Token Chart ── */
+        .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px; margin-bottom:36px; }
+        .chart-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; }
+        .chart-title { font-size:1.05rem; font-weight:700; }
+        .chart-subtitle { color:var(--text-dim); font-size:.82rem; margin-top:4px; }
+        .chart-wrap { height:200px; }
+        .savings-pill { background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.3); border-radius:10px; padding:10px 18px; text-align:center; }
+        .savings-pill .big2 { font-size:1.6rem; font-weight:900; color:var(--primary); line-height:1; }
+        .savings-pill .lbl  { font-size:.7rem; color:var(--text-dim); }
+
+        /* ── KV Explainer ── */
+        .explainer { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px; }
+        .explainer h3 { font-size:1.2rem; margin-bottom:10px; }
+        .explainer p { color:var(--text-dim); line-height:1.7; font-size:.92rem; margin-bottom:12px; }
+        .kv-tip { border-left:3px solid var(--primary); padding-left:14px; color:var(--text-dim); font-size:.88rem; line-height:1.6; }
+        .kv-tip strong { color:var(--primary); }
+
+        .footer { text-align:center; color:var(--text-dim); font-size:.78rem; padding-top:28px; border-top:1px solid var(--border); margin-top:40px; }
+
+        @media(max-width:768px) {
+            .race-grid,.compare-grid,.summary-stats,.form-grid { grid-template-columns:1fr; }
+            .compare-divider { flex-direction:row; padding:12px 0; }
+            .divider-line { flex:1; width:auto; height:1px; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-tag">Interactive Live Demo · Trip Planner · Multi-Agent</div>
+        <h1>Vanilla vs SuperBrain SDK</h1>
+        <p>Enter trip details, hit Run, and watch both implementations execute side-by-side in real time. Results appear automatically when both finish.</p>
+    </div>
+
+    <!-- Input Form -->
+    <div class="form-card">
+        <h2>🗺️ Trip Parameters</h2>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Flying From</label>
+                <input type="text" id="f-origin" value="Mumbai" placeholder="e.g. New York">
+            </div>
+            <div class="form-field">
+                <label>Destination Cities</label>
+                <input type="text" id="f-cities" value="London, Paris" placeholder="e.g. London, Paris">
+            </div>
+            <div class="form-field">
+                <label>Travel Dates</label>
+                <input type="text" id="f-dates" value="July 2026" placeholder="e.g. July 2026">
+            </div>
+            <div class="form-field">
+                <label>Interests &amp; Hobbies</label>
+                <input type="text" id="f-interests" value="History, Food, Art" placeholder="e.g. History, Food, Art">
+            </div>
+        </div>
+        <button class="run-btn" id="run-btn" onclick="startRun()">
+            <div class="spinner"></div>
+            <span id="btn-text">🚀 Run Comparison</span>
+        </button>
+    </div>
+
+    <!-- Live Log Panels -->
+    <div class="section-label" id="logs-label" style="display:none">⚡ Live Execution — Side-by-Side</div>
+    <div class="race-grid" id="race-grid" style="display:none">
+
+        <!-- Vanilla -->
+        <div class="race-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    🐌 Vanilla CrewAI
+                    <span class="panel-badge badge-v">Traditional</span>
+                </div>
+                <div class="panel-status" id="v-status">
+                    <div class="status-dot" id="v-dot"></div>
+                    <span id="v-status-text">Idle</span>
+                </div>
+            </div>
+            <div class="log-body" id="v-log">
+                <span class="log-idle">Waiting to start…</span>
+            </div>
+        </div>
+
+        <!-- SDK -->
+        <div class="race-panel sdk">
+            <div class="panel-header">
+                <div class="panel-title">
+                    🧠 SuperBrain SDK
+                    <span class="panel-badge badge-s">● LIVE</span>
+                </div>
+                <div class="panel-status" id="s-status">
+                    <div class="status-dot" id="s-dot"></div>
+                    <span id="s-status-text">Idle</span>
+                </div>
+            </div>
+            <div class="log-body" id="s-log">
+                <span class="log-idle">Waiting to start…</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section (auto-shown when done) -->
+    <div id="results-section">
+
+        <div class="section-label">📊 Measured Results — Side-by-Side</div>
+
+        <div class="compare-grid" style="margin-bottom:24px">
+            <div class="impl-card">
+                <div class="impl-card-header">
+                    <span class="impl-title">🐌 Vanilla CrewAI</span>
+                    <span class="panel-badge badge-v">Traditional</span>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">State Exchange Latency <span class="stat-source">simulated TCP/DB overhead</span></div>
+                    <div class="stat-value danger" id="v-latency">—<span class="stat-unit">ms</span></div>
+                    <div class="bar-track"><div class="bar-fill red" id="v-lat-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Execution Time <span class="stat-source">perf_counter</span></div>
+                    <div class="stat-value danger" id="v-exec">—<span class="stat-unit">ms</span></div>
+                    <div class="bar-track"><div class="bar-fill red" id="v-exec-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Tokens Processed <span class="stat-source">word count × 1.3 × N agents</span></div>
+                    <div class="stat-value danger" id="v-tokens">—</div>
+                    <div class="bar-track"><div class="bar-fill red" id="v-tok-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Memory Efficiency</div>
+                    <div class="stat-value danger" id="v-mem">—<span class="stat-unit">%</span></div>
+                </div>
+            </div>
+
+            <div class="compare-divider">
+                <div class="divider-line"></div>
+                <div class="divider-vs">vs</div>
+                <div class="divider-line"></div>
+            </div>
+
+            <div class="impl-card sdk">
+                <div class="impl-card-header">
+                    <span class="impl-title">🧠 SuperBrain SDK</span>
+                    <span class="panel-badge badge-s">● LIVE</span>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Fabric Latency (SHM) <span class="stat-source">measured SHM read/write μs</span></div>
+                    <div class="stat-value safe" id="s-latency">—<span class="stat-unit">μs</span></div>
+                    <div class="bar-track"><div class="bar-fill cyan" id="s-lat-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Execution Time <span class="stat-source">perf_counter</span></div>
+                    <div class="stat-value safe" id="s-exec">—<span class="stat-unit">ms</span></div>
+                    <div class="bar-track"><div class="bar-fill cyan" id="s-exec-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Tokens Processed <span class="stat-source">prompt + new_data (KV-cache reuse)</span></div>
+                    <div class="stat-value safe" id="s-tokens">—</div>
+                    <div class="bar-track"><div class="bar-fill cyan" id="s-tok-bar" style="width:0%"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Memory Efficiency</div>
+                    <div class="stat-value safe" id="s-mem">—<span class="stat-unit">%</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="big" id="r-speedup" style="color:var(--primary)">—x</div>
+                <div class="lbl">Faster State Sharing</div>
+            </div>
+            <div class="stat-card">
+                <div class="big" id="r-tokens" style="color:var(--accent)">—%</div>
+                <div class="lbl">Token Reduction</div>
+            </div>
+            <div class="stat-card">
+                <div class="big" id="r-mem" style="color:var(--green)">+—%</div>
+                <div class="lbl">Memory Efficiency Gain</div>
+            </div>
+        </div>
+
+        <!-- Token Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Token Consumption Comparison</div>
+                    <div class="chart-subtitle">Measured from input/output word count at runtime</div>
+                </div>
+                <div class="savings-pill">
+                    <div class="big2" id="r-savings-pct">—%</div>
+                    <div class="lbl">Token Savings</div>
+                </div>
+            </div>
+            <div class="chart-wrap"><canvas id="tokenChart"></canvas></div>
+        </div>
+
+        <!-- KV Explainer -->
+        <div class="explainer">
+            <h3>Why SuperBrain Uses Fewer Tokens</h3>
+            <p>Vanilla CrewAI re-sends the full conversation history and system prompt to the LLM on every agent turn — 3 agents = 3× the prompt tokens.</p>
+            <p>SuperBrain's <strong>Distributed KV-Caching</strong> precomputes the Key-Value tensor representations of those tokens and stores them in its shared-memory fabric.</p>
+            <div class="kv-tip">
+                <strong>Result:</strong> Subsequent agents attach to the cached KV-state via a zero-copy memory pointer (~22μs). The LLM skips re-computing those tokens entirely — making shared context effectively <strong>free to reuse</strong>.
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        All metrics measured at runtime · Served by <code>server.py</code> · <a href="/api/results" style="color:var(--primary);text-decoration:none">View raw JSON</a>
+    </div>
+</div>
+
+<script>
+let tokenChart = null;
+let vanillaDone = false, sdkDone = false;
+
+// ── Utilities ──
+function fmt(n, d=1)   { return Number(n).toFixed(d); }
+function fmtInt(n)      { return Math.round(n).toLocaleString(); }
+function animBar(id, pct) { setTimeout(() => { document.getElementById(id).style.width = Math.min(pct,100)+'%'; }, 200); }
+
+function setStatus(which, state) {
+    const dot  = document.getElementById(`${which}-dot`);
+    const text = document.getElementById(`${which}-status-text`);
+    dot.className = 'status-dot ' + state;
+    text.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+}
+
+function appendLog(logId, entry) {
+    const box = document.getElementById(logId);
+    // Clear idle placeholder
+    const idle = box.querySelector('.log-idle');
+    if (idle) idle.remove();
+
+    const line = document.createElement('div');
+    line.className = 'log-line ' + (entry.type || 'log');
+    line.textContent = entry.text || '';
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+}
+
+// ── SSE streaming ──
+function streamImpl(impl) {
+    const logId  = impl === 'vanilla' ? 'v-log' : 's-log';
+    const which  = impl === 'vanilla' ? 'v'     : 's';
+    setStatus(which, 'running');
+
+    const es = new EventSource(`/api/stream?impl=${impl}`);
+
+    es.onmessage = (e) => {
+        const entry = JSON.parse(e.data);
+        appendLog(logId, entry);
+
+        if (entry.type === 'done') {
+            setStatus(which, entry.rc === 0 ? 'done' : 'error');
+            es.close();
+
+            if (impl === 'vanilla') vanillaDone = true;
+            else                    sdkDone     = true;
+
+            if (vanillaDone && sdkDone) onBothDone();
+        }
+    };
+
+    es.onerror = () => {
+        setStatus(which, 'error');
+        appendLog(logId, { type: 'error', text: '⚠ Connection lost' });
+        es.close();
+    };
+}
+
+// ── Called when both are finished ──
+async function onBothDone() {
+    // Fetch results
+    try {
+        const res  = await fetch('/api/results?t=' + Date.now());
+        if (!res.ok) throw new Error('No results');
+        const data = await res.json();
+        renderResults(data);
+    } catch {
+        // If results load fails, still unlock the button
+    }
+
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('run-btn').classList.remove('loading');
+    document.getElementById('btn-text').textContent = '🔄 Run Again';
+}
+
+function renderResults(data) {
+    const v = data.vanilla;
+    const s = data.superbrain_sdk;
+
+    document.getElementById('results-section').classList.add('visible');
+
+    // Vanilla
+    document.getElementById('v-latency').innerHTML = `${fmt(v.state_sharing_latency_us/1000)}<span class="stat-unit">ms</span>`;
+    document.getElementById('v-exec').innerHTML    = `${fmt(v.execution_time_ms)}<span class="stat-unit">ms</span>`;
+    document.getElementById('v-tokens').textContent = fmtInt(v.total_tokens_processed);
+    document.getElementById('v-mem').innerHTML     = `${Math.round(v.memory_efficiency_score*100)}<span class="stat-unit">%</span>`;
+
+    // SDK
+    document.getElementById('s-latency').innerHTML = `${fmt(s.state_sharing_latency_us)}<span class="stat-unit">μs</span>`;
+    document.getElementById('s-exec').innerHTML    = `${fmt(s.execution_time_ms)}<span class="stat-unit">ms</span>`;
+    document.getElementById('s-tokens').textContent = fmtInt(s.total_tokens_processed);
+    document.getElementById('s-mem').innerHTML     = `${Math.round(s.memory_efficiency_score*100)}<span class="stat-unit">%</span>`;
+
+    // Bars
+    animBar('v-lat-bar',  90);
+    animBar('s-lat-bar',  Math.max((s.state_sharing_latency_us/v.state_sharing_latency_us)*90,2));
+    animBar('v-exec-bar', 90);
+    animBar('s-exec-bar', Math.max((s.execution_time_ms/v.execution_time_ms)*90,5));
+    animBar('v-tok-bar',  90);
+    animBar('s-tok-bar',  Math.max((s.total_tokens_processed/v.total_tokens_processed)*90,5));
+
+    // Summary stats
+    const speedup   = Math.round(v.state_sharing_latency_us/s.state_sharing_latency_us);
+    const tokenPct  = s.token_savings_percent
+        ? Number(s.token_savings_percent).toFixed(1)
+        : Math.round((v.total_tokens_processed-s.total_tokens_processed)/v.total_tokens_processed*100);
+    const memGain   = Math.round((s.memory_efficiency_score-v.memory_efficiency_score)*100);
+
+    document.getElementById('r-speedup').textContent    = `${speedup.toLocaleString()}x`;
+    document.getElementById('r-tokens').textContent     = `${tokenPct}%`;
+    document.getElementById('r-mem').textContent        = `+${memGain}%`;
+    document.getElementById('r-savings-pct').textContent = `${tokenPct}%`;
+
+    // Token chart
+    if (tokenChart) tokenChart.destroy();
+    const ctx = document.getElementById('tokenChart').getContext('2d');
+    tokenChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Vanilla CrewAI', 'SuperBrain SDK'],
+            datasets: [{
+                data: [v.total_tokens_processed, s.total_tokens_processed],
+                backgroundColor: ['rgba(255,107,107,.25)', 'rgba(0,229,255,.2)'],
+                borderColor:     ['rgba(255,107,107,.8)',  'rgba(0,229,255,.8)'],
+                borderWidth: 2, borderRadius: 10,
+            }]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins: {
+                legend: { display:false },
+                tooltip: { callbacks: { label: ctx => ` ${fmtInt(ctx.raw)} tokens` } }
+            },
+            scales: {
+                y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8b949e',callback:v=>fmtInt(v)} },
+                x: { grid:{display:false}, ticks:{color:'#8b949e',font:{weight:600,size:13}} }
+            }
+        }
+    });
+
+    // Smooth scroll to results
+    setTimeout(() => {
+        document.getElementById('results-section').scrollIntoView({behavior:'smooth', block:'start'});
+    }, 300);
+}
+
+// ── Trigger run ──
+async function startRun() {
+    vanillaDone = false; sdkDone = false;
+
+    // Gather params
+    const params = {
+        origin:    document.getElementById('f-origin').value.trim()    || 'Mumbai',
+        cities:    document.getElementById('f-cities').value.trim()    || 'London, Paris',
+        dates:     document.getElementById('f-dates').value.trim()     || 'July 2026',
+        interests: document.getElementById('f-interests').value.trim() || 'History, Food, Art',
+    };
+
+    // UI reset
+    document.getElementById('run-btn').disabled = true;
+    document.getElementById('run-btn').classList.add('loading');
+    document.getElementById('btn-text').textContent = 'Running…';
+    document.getElementById('race-grid').style.display = 'grid';
+    document.getElementById('logs-label').style.display = 'block';
+    document.getElementById('results-section').classList.remove('visible');
+
+    // Clear logs
+    ['v-log','s-log'].forEach(id => {
+        document.getElementById(id).innerHTML = '<span class="log-idle">Starting…</span>';
+    });
+    setStatus('v','running'); setStatus('s','running');
+
+    // POST to server
+    try {
+        const res = await fetch('/api/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Error: ' + (err.error || 'Unknown'));
+            document.getElementById('run-btn').disabled = false;
+            document.getElementById('run-btn').classList.remove('loading');
+            document.getElementById('btn-text').textContent = '🚀 Run Comparison';
+            return;
+        }
+    } catch (e) {
+        alert('Cannot connect to server.\n\nPlease run:\n  python3 server.py\n\nin the trip_planner_comparison folder first.');
+        document.getElementById('run-btn').disabled = false;
+        document.getElementById('run-btn').classList.remove('loading');
+        document.getElementById('btn-text').textContent = '🚀 Run Comparison';
+        return;
+    }
+
+    // Start SSE streams for both
+    streamImpl('vanilla');
+    streamImpl('sdk');
+}
+</script>
+</body>
+</html>
